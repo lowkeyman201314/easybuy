@@ -2,6 +2,7 @@ package cn.bdqn.easybuy.web;
 
 import cn.bdqn.easybuy.util.EmptyUtils;
 import cn.bdqn.easybuy.util.PrintUtils;
+import cn.bdqn.easybuy.util.ReturnResult;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -17,7 +18,6 @@ import java.lang.reflect.Method;
  * @Date: 2019/1/9 18:43
  * @Description:
  */
-@WebServlet(name = "AbstractServlet")
 public abstract class AbstractServlet extends HttpServlet {
     //
     public abstract Class getServletClass();
@@ -29,18 +29,33 @@ public abstract class AbstractServlet extends HttpServlet {
         Method method = null;
         //返回结果
         Object result = null;
-        if (EmptyUtils.isEmpty(action)) {
-            //如果参数为空，返回首页
-            result = execute();
-        } else {
-            try {
+        try {
+            if (EmptyUtils.isEmpty(action)) {
+                //如果参数为空，返回首页
+                result = execute(request, response);
+            } else {
                 method = getServletClass().getDeclaredMethod(action, HttpServletRequest.class, HttpServletResponse.class);
                 //调用方法，返回结果:this(继承了抽象类的子类的实例对象)
                 result = method.invoke(this, request, response);
-            } catch (NoSuchMethodException e) {
-                e.printStackTrace();
-            } catch (Exception e) {
-                e.printStackTrace();
+            }
+            toView(request, response, result);
+        } catch (NoSuchMethodException e) {
+            String viewName = "404.jsp";
+            request.getRequestDispatcher(viewName).forward(request, response);
+        } catch (Exception e) {
+            e.printStackTrace();
+            if (!EmptyUtils.isEmpty(result)) {
+                if (result instanceof String) {
+                    String viewName = "500.jsp";
+                    request.getRequestDispatcher(viewName).forward(request, response);
+                } else {
+                    ReturnResult returnResult = new ReturnResult();
+                    returnResult.returnFail("系统错误");
+                    PrintUtils.write(returnResult, response);
+                }
+            } else {
+                String viewName = "500.jsp";
+                request.getRequestDispatcher(viewName).forward(request, response);
             }
         }
     }
@@ -48,23 +63,19 @@ public abstract class AbstractServlet extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         doPost(request, response);
     }
-
-    @Override
-    public void init() throws ServletException {
-
-    }
-
     /**
      * 返回首页的方法
      *
      * @return
      */
-    public Object execute() {
-        return "/pre/index";
+    public Object execute(HttpServletRequest request,
+                          HttpServletResponse response) {
+        return "pre/index";
     }
 
     /**
      * 返回结果的方法
+     *
      * @param request
      * @param response
      * @param result
@@ -77,10 +88,10 @@ public abstract class AbstractServlet extends HttpServlet {
             //如果返回结果是String
             if (result instanceof String) {
                 //拼接成一个jsp文件的名称
-                String viewName=result.toString()+".jsp";
-                request.getRequestDispatcher(viewName).forward(request,response);
-            }else{
-                PrintUtils.write(result,response);
+                String viewName = result.toString() + ".jsp";
+                request.getRequestDispatcher(viewName).forward(request, response);
+            } else {
+                PrintUtils.write(result, response);
             }
         }
     }
